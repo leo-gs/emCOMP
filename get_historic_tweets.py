@@ -1,3 +1,4 @@
+import csv
 import datetime
 import json
 import os
@@ -68,13 +69,17 @@ def get_historic_tweets_from_id(uid,api):
 api = authenticate()
 
 ## Load list of uids to collect
-all_uids = # CHANGE THIS TO READ IN A FILE
+all_uids = []
+with open("hurricane_harvey_geotagged_users.csv") as f:
+	reader = csv.reader(f)
+	for row in reader:
+		all_uids.append(row[1])
 
 ## Get a list of uids we've already collected by seeing which JSON files we have (so we don't collect on the same users twice)
-completed_uids = set([fname.split('.')[0] for fname in os.listdir("json_dumps")])
+completed_uids = set([fname.replace('.', ' ').replace('_', ' ').split()[0] for fname in os.listdir("json_data")])
 
 ## Figure out which uids are left
-uids_remaining = all_uids - completed_uids
+uids_remaining = set(all_uids) - completed_uids
 
 ## Loop through the list of remaining uids					
 for uid in uids_remaining:
@@ -91,7 +96,7 @@ for uid in uids_remaining:
 		data = {"user_id":uid, "utc_timestamp":utc_now, "historic_tweets":historic_tweets}
 
 		## Dump the JSON into a file with the name <uid>.json
-		with open("json_data/" + str(uid) + ".json", "w+") as data_file:
+		with open("json_data/" + str(uid) + '_' + utc_now + ".json", "w+") as data_file:
 			json.dump(data, data_file)
 
 		## Print out how many tweets we've collected per user id (for debugging)
