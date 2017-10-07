@@ -5,7 +5,7 @@ import os
 import sys
 import time
 import tweepy
-
+from tweepy.auth import OAuthHandler
 
 '''
 Collects the k most recent tweets given a list of users and stores the tweets as JSON files.
@@ -15,7 +15,7 @@ Before using, set the value of CAP to be k and make sure all_uids contains a lis
 Usage: python get_historic_tweets.py twitter_config.txt
 '''
 
-CAP = 100 ## How many tweets to get per user (set to None for no cap, although I think Twitter will cap it anyways eventually)
+CAP = 3200 ## How many tweets to get per user (set to None for no cap, although I think Twitter will cap it anyways eventually)
 
 def authenticate():
 	## Pulling twitter login credentials from "config" file (the file passed in as a command line argument)
@@ -27,7 +27,7 @@ def authenticate():
 	access_token_secret = config[3]
 
 	## Authenticating
-	auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
+	auth = OAuthHandler(consumer_key, consumer_secret)
 	auth.set_access_token(access_token, access_token_secret)
 
 	## Returning the authenticated API object
@@ -70,7 +70,7 @@ api = authenticate()
 
 ## Load list of uids to collect
 all_uids = []
-with open("hurricane_harvey_geotagged_users.csv") as f:
+with open("harvey_accounts.csv") as f:
 	reader = csv.reader(f)
 	for row in reader:
 		all_uids.append(row[1])
