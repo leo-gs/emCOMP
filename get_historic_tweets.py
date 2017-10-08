@@ -20,7 +20,7 @@ CAP = 3200 ## How many tweets to get per user (set to None for no cap, although 
 def authenticate():
 	## Pulling twitter login credentials from "config" file (the file passed in as a command line argument)
 	## The file should have the consumer key, consumer secret, access token, and access token secret in that order, separated by newlines.
-	config = open(sys.argv[1]).read().split()
+	config = open("config/twitter_config_1.txt").read().split()
 	consumer_key = config[0]
 	consumer_secret = config[1]
 	access_token = config[2]
@@ -44,7 +44,7 @@ def get_historic_tweets_from_id(uid,api):
 	## The timeline is returned as pages of tweets (each page has 20 tweets, starting with the 20 most recent)
 	## If a cap has been set and our list of tweets gets to be longer than the cap, we'll stop collecting
 	try:
-		for page in tweepy.Cursor(api.user_timeline, id=uid).pages():
+		for page in tweepy.Cursor(api.user_timeline, id=uid, count=200).pages():
 			tweets.extend(page)
 			if CAP and len(tweets) >= CAP:
 				return tweets
@@ -76,10 +76,11 @@ with open("harvey_accounts.csv") as f:
 		all_uids.append(row[1])
 
 ## Get a list of uids we've already collected by seeing which JSON files we have (so we don't collect on the same users twice)
-completed_uids = set([fname.replace('.', ' ').replace('_', ' ').split()[0] for fname in os.listdir("json_data")])
+completed_uids = set([fname.split('.')[0] for fname in os.listdir("json_data")])
 
 ## Figure out which uids are left
 uids_remaining = set(all_uids) - completed_uids
+print(len(uids_remaining))
 
 ## Loop through the list of remaining uids					
 for uid in uids_remaining:
@@ -96,7 +97,7 @@ for uid in uids_remaining:
 		data = {"user_id":uid, "utc_timestamp":utc_now, "historic_tweets":historic_tweets}
 
 		## Dump the JSON into a file with the name <uid>.json
-		with open("json_data/" + str(uid) + '_' + utc_now + ".json", "w+") as data_file:
+		with open("json_data/" + str(uid) + ".json", "w+") as data_file:
 			json.dump(data, data_file)
 
 		## Print out how many tweets we've collected per user id (for debugging)
