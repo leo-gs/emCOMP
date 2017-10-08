@@ -4,7 +4,6 @@ import json
 import os
 import sys
 import time
-import tweepy
 
 
 '''
@@ -12,15 +11,15 @@ Collects the k most recent tweets given a list of users and stores the tweets as
 
 Before using, set the value of CAP to be k and make sure all_uids contains a list of user ids.
 
-Usage: python get_historic_tweets.py twitter_config.txt
+Usage: python get_historic_tweets.p
 '''
 
-CAP = 100 ## How many tweets to get per user (set to None for no cap, although I think Twitter will cap it anyways eventually)
+CAP = 1000 ## How many tweets to get per user (set to None for no cap, although I think Twitter will cap it anyways eventually)
 
 def authenticate():
-	## Pulling twitter login credentials from "config" file (the file passed in as a command line argument)
+	## Pulling twitter login credentials from "config" file
 	## The file should have the consumer key, consumer secret, access token, and access token secret in that order, separated by newlines.
-	config = open(sys.argv[1]).read().split()
+	config = open("config/twitter_config_1.txt").read().split()
 	consumer_key = config[0]
 	consumer_secret = config[1]
 	access_token = config[2]
@@ -76,7 +75,7 @@ with open("hurricane_harvey_geotagged_users.csv") as f:
 		all_uids.append(row[1])
 
 ## Get a list of uids we've already collected by seeing which JSON files we have (so we don't collect on the same users twice)
-completed_uids = set([fname.replace('.', ' ').replace('_', ' ').split()[0] for fname in os.listdir("json_data")])
+completed_uids = set([fname.split(',')[0] for fname in os.listdir("json_data")])
 
 ## Figure out which uids are left
 uids_remaining = set(all_uids) - completed_uids
@@ -96,7 +95,7 @@ for uid in uids_remaining:
 		data = {"user_id":uid, "utc_timestamp":utc_now, "historic_tweets":historic_tweets}
 
 		## Dump the JSON into a file with the name <uid>.json
-		with open("json_data/" + str(uid) + '_' + utc_now + ".json", "w+") as data_file:
+		with open("json_data/" + str(uid) + ".json", "w+") as data_file:
 			json.dump(data, data_file)
 
 		## Print out how many tweets we've collected per user id (for debugging)
