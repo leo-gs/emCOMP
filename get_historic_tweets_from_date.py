@@ -77,8 +77,11 @@ def get_historic_tweets_before_id(api, uid, max_id=None):
 		tweets = get_historic_tweets_before_id(api, uid, max_id)
 
 	if tweets:
-		max_id, oldest_tweet_date = tweets[0]['id'], None
+		max_id, oldest_tweet_date = tweets[0]['id'], convert_str_to_datetime(tweets[0]['created_at'])
 		for tweet in tweets[1:]:
+			print(max_id)
+			print(oldest_tweet_date)
+			print('')
 			if tweet['id'] < max_id:
 				max_id = tweet['id']
 				oldest_tweet_date = convert_str_to_datetime(tweet['created_at'])
@@ -123,7 +126,6 @@ with open("harvey_ids_2.csv") as f:
 		all_uids.append(row[0])
 
 ## Get a list of uids we've already collected by seeing which JSON files we have (so we don't collect on the same users twice)
-
 completed_uids = set([fname.split('.')[0] for fname in os.listdir("json_data_2")])
 
 
