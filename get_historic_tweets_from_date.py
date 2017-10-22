@@ -140,18 +140,16 @@ for uid in uids_remaining:
 		historic_tweets = get_historic_tweets(api, uid)
 		print(str(len(historic_tweets)) + " tweets collected")
 
-		## Convert each Status object from Tweepy to JSON
-		#historic_tweets = [tweet._json for tweet in historic_tweets]
+		if historic_tweets:
+			## Add the uid and the timestamp to the JSON
+			data = {"user_id":uid, "utc_timestamp":utc_now, "historic_tweets":historic_tweets}
 
-		## Add the uid and the timestamp to the JSON
-		data = {"user_id":uid, "utc_timestamp":utc_now, "historic_tweets":historic_tweets}
+			## Dump the JSON into a file with the name <uid>.json
+			with open("json_data_2/" + str(uid) + ".json", "w+") as data_file:
+				json.dump(data, data_file)
 
-		## Dump the JSON into a file with the name <uid>.json
-		with open("json_data_2/" + str(uid) + ".json", "w+") as data_file:
-			json.dump(data, data_file)
-
-		## Print out how many tweets we've collected per user id (for debugging)
-		print(str(uid) + ': ' + str(len(historic_tweets)) + ' tweets collected')
+			## Print out how many tweets we've collected per user id (for debugging)
+			print(str(uid) + ': ' + str(len(historic_tweets)) + ' tweets collected')
 
 	## If we get a Tweepy error, print the uid and error and keep running
 	except tweepy.error.TweepError as ex:
