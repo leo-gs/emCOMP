@@ -13,11 +13,20 @@ Collects the k most recent tweets given a list of users and stores the tweets as
 
 Before using, set the value of CAP to be k and make sure all_uids contains a list of user ids.
 
-Usage: python get_historic_tweets.py
+Usage: python get_historic_tweets_from_date.py
 '''
 
 
-CAP = 3200 ## How many tweets to get per user (set to None for no cap, although I think Twitter will cap it anyways eventually)
+FROM_DATE_STR = "Fri Aug 18 00:00:00 +0000 2017"
+
+def convert_str_to_datetime(datetime_str):
+	date_format = "%a %b %d %H:%M:%S +0000 %Y"
+	return datetime.datetime.strptime(datetime_str, date_format)
+
+def get_now():
+	return datetime.datetime.utcnow()
+
+from_date = convert_str_to_datetime(FROM_DATE_STR)
 
 def authenticate():
 	## Pulling twitter login credentials from "config" file
@@ -36,7 +45,10 @@ def authenticate():
 	api = tweepy.API(auth)
 	return api
 
-def get_historic_tweets_from_id(uid,api):
+## Gets 3200 of the most recent tweets associated with the given uid before before_id
+## (or the 3200 most recent tweets if before_id is None)
+## Returns the minimum id of the list of tweets (i.e. the id corresponding to the earliest tweet)
+def get_historic_tweets_before_id(api, uid, max_id=None):
 	## Printing out the user id (for debugging)
 	print(uid)
 
@@ -45,11 +57,15 @@ def get_historic_tweets_from_id(uid,api):
 
 	## The timeline is returned as pages of tweets (each page has 20 tweets, starting with the 20 most recent)
 	## If a cap has been set and our list of tweets gets to be longer than the cap, we'll stop collecting
+	cursor_args = {"id": uid, "count": 200}
+	if max_id:
+		cursor_args["max_id"] = max_id
+
 	try:
-		for page in tweepy.Cursor(api.user_timeline, id=uid, count=200).pages():
-			tweets.extend(page)
-			if CAP and len(tweets) >= CAP:
-				return tweets
+		for page in tweepy.Cursor(api.user_timeline, **cursor_args).pages(16):
+			## Adding the tweets to the list
+			tweets.extend([tweet._json for tweet in page])
+
 			## We get 900 requests per 15-minute window, or 1 request/second, so wait 1 second between each request just to be safe
 			time.sleep(1)
 	
@@ -58,9 +74,38 @@ def get_historic_tweets_from_id(uid,api):
 		time.sleep(15*60)
 
 		## Try again
-		tweets = get_historic_tweets_from_id(uid,api)
+		tweets = get_historic_tweets_before_id(api, uid, max_id)
+
+	if tweets:
+		max_id, oldest_tweet_date = tweets[0]['id'], None
+		for tweet in tweets[1:]:
+			if tweet['id'] < max_id:
+				max_id = tweet['id']
+				oldest_tweet_date = convert_str_to_datetime(tweet['created_at'])
+		return (max_id, oldest_tweet_date, tweets)
+
+## Get a uid's tweets since FROM_DATE
+def get_historic_tweets(api, uid):
+	max_id, oldest_tweet_date = None, get_now()
+
+	tweets = []
+
+	while oldest_tweet_date > from_date:
+		request_result = get_historic_tweets_before_id(api, uid, max_id)
+		if request_result:
+			max_id, oldest_tweet_date, returned_tweets = request_result
+			print("1. " + str(len(returned_tweets)) + " total returned")
+
+			if oldest_tweet_date < from_date:
+				returned_tweets = [tweet for tweet in returned_tweets if convert_str_to_datetime(tweet['created_at']) >= from_date]
+				print("2. " + str(len(returned_tweets)) + " after filtering")
+
+			tweets.extend(returned_tweets)
+		else:
+			break
 
 	return tweets
+
 
 
 
@@ -88,14 +133,15 @@ print(len(uids_remaining))
 
 ## Loop through the list of remaining uids					
 for uid in uids_remaining:
-	utc_now = str(datetime.datetime.utcnow()) ## Get the timestamp of when we collected the tweets and convert it to a string so it can be stored in JSON
+	utc_now = str(get_now()) ## Get the timestamp of when we collected the tweets and convert it to a string so it can be stored in JSON
 
 	try:
 		## Pull the tweets using Tweepy
-		historic_tweets = get_historic_tweets_from_id(uid,api)
+		historic_tweets = get_historic_tweets(api, uid)
+		print(str(len(historic_tweets)) + " tweets collected")
 
 		## Convert each Status object from Tweepy to JSON
-		historic_tweets = [tweet._json for tweet in historic_tweets]
+		#historic_tweets = [tweet._json for tweet in historic_tweets]
 
 		## Add the uid and the timestamp to the JSON
 		data = {"user_id":uid, "utc_timestamp":utc_now, "historic_tweets":historic_tweets}
