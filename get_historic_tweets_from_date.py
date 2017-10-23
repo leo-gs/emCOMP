@@ -58,6 +58,7 @@ def get_historic_tweets_before_id(api, uid, max_id=None):
 
 	## List of tweets we've collected so far
 	tweets = []
+	finished = False
 
 	## The timeline is returned as pages of tweets (each page has 20 tweets, starting with the 20 most recent)
 	## If a cap has been set and our list of tweets gets to be longer than the cap, we'll stop collecting
@@ -72,50 +73,44 @@ def get_historic_tweets_before_id(api, uid, max_id=None):
 			json_tweets = [tweet._json for tweet in page]
 			tweets.extend(json_tweets)
 
-			if any(convert_str_to_datetime(tweet['created_at']) < from_date for tweet in json_tweets):
+			if any(convert_str_to_datetime(tweet['created_at']) < from_date for tweet in json_tweets) or len(page)==1:
 				## We've already gone as far back as we need to, so quit looping through pages of tweets
+				finished = True
 				break
 			else:
 				## We get 900 requests per 15-minute window, or 1 request/second, so wait 1 second between each request just to be safe
 				time.sleep(1)
 	
-	except tweepy.RateLimitError:
+	except tweepy.error.TweepError as ex:
 		## We received a rate limiting error, so wait 15 minutes
-		time.sleep(15*60)
+		if "429" in str(ex): # a hacky way to see if it's a rate limiting error
+			time.sleep(15*60)
+			print("rate limited :/")
 
-		## Try again
-		tweets = get_historic_tweets_before_id(api, uid, max_id)
+			## Try again
+			return get_historic_tweets_before_id(api, uid, max_id)
+		else:
+			print(uid)
+			print(ex)
+			return (None, True, tweets)
 
 	if tweets:
-		max_id, oldest_tweet_date = tweets[0]['id'], convert_str_to_datetime(tweets[0]['created_at'])
+		max_id = tweets[0]['id']
 		for tweet in tweets[1:]:
-			# print(max_id)
-			# print(oldest_tweet_date)
-			# print('')
 			if tweet['id'] < max_id:
 				max_id = tweet['id']
-				oldest_tweet_date = convert_str_to_datetime(tweet['created_at'])
-		return (max_id, oldest_tweet_date, tweets)
+
+		return (max_id, finished, tweets)
 
 ## Get a uid's tweets since FROM_DATE
 def get_historic_tweets(api, uid):
-	max_id, oldest_tweet_date = None, get_now()
+	max_id, finished, tweets = None, False, []
+	while not finished:
+		max_id, finished, returned_tweets = get_historic_tweets_before_id(api, uid, max_id)
+		print("1. " + str(len(returned_tweets)) + " total returned, max_id=" + str(max_id))
 
-	tweets = []
-
-	while oldest_tweet_date > from_date:
-		request_result = get_historic_tweets_before_id(api, uid, max_id)
-		if request_result:
-			max_id, oldest_tweet_date, returned_tweets = request_result
-			print("1. " + str(len(returned_tweets)) + " total returned")
-
-			if oldest_tweet_date < from_date:
-				returned_tweets = [tweet for tweet in returned_tweets if convert_str_to_datetime(tweet['created_at']) >= from_date]
-				print("2. " + str(len(returned_tweets)) + " after filtering")
-
+		if returned_tweets:
 			tweets.extend(returned_tweets)
-		else:
-			break
 
 	return tweets
 
@@ -147,23 +142,17 @@ print(len(uids_remaining))
 for uid in uids_remaining:
 	utc_now = str(get_now()) ## Get the timestamp of when we collected the tweets and convert it to a string so it can be stored in JSON
 
-	try:
-		## Pull the tweets using Tweepy
-		historic_tweets = get_historic_tweets(api, uid)
-		print(str(len(historic_tweets)) + " tweets collected")
+	## Pull the tweets using Tweepy
+	historic_tweets = get_historic_tweets(api, uid)
+	print(str(len(historic_tweets)) + " tweets collected")
 
-		if historic_tweets:
-			## Add the uid and the timestamp to the JSON
-			data = {"user_id":uid, "utc_timestamp":utc_now, "historic_tweets":historic_tweets}
+	if historic_tweets:
+		## Add the uid and the timestamp to the JSON
+		data = {"user_id":uid, "utc_timestamp":utc_now, "historic_tweets":historic_tweets}
 
-			## Dump the JSON into a file with the name <uid>.json
-			with open(output_dir + "/" + str(uid) + ".json", "w+") as data_file:
-				json.dump(data, data_file)
+		## Dump the JSON into a file with the name <uid>.json
+		with open(output_dir + "/" + str(uid) + ".json", "w+") as data_file:
+			json.dump(data, data_file)
 
-			## Print out how many tweets we've collected per user id (for debugging)
-			print(str(uid) + ': ' + str(len(historic_tweets)) + ' tweets collected')
-
-	## If we get a Tweepy error, print the uid and error and keep running
-	except tweepy.error.TweepError as ex:
-		print(uid)
-		print(ex)
+		## Print out how many tweets we've collected per user id (for debugging)
+		print(str(uid) + ': ' + str(len(historic_tweets)) + ' tweets collected')
