@@ -9,15 +9,19 @@ import tweepy
 from tweepy.auth import OAuthHandler
 
 '''
-Collects the k most recent tweets given a list of users and stores the tweets as JSON files.
+Collects the tweets tweeted since the given date given a list of users and stores the tweets as JSON files.
 
-Before using, set the value of CAP to be k and make sure all_uids contains a list of user ids.
+Before using, set the value of FROM_DATE_STR and make sure all_uids contains a list of user ids.
 
-Usage: python get_historic_tweets_from_date.py
+Usage: python get_historic_tweets_from_date.py input_list_of_ids.csv output_json_dir/ twitter_config.txt
 '''
 
 
 FROM_DATE_STR = "Fri Aug 18 00:00:00 +0000 2017"
+
+input_list = sys.argv[1]
+output_dir = sys.argv[2]
+config_file = sys.argv[3]
 
 def convert_str_to_datetime(datetime_str):
 	date_format = "%a %b %d %H:%M:%S +0000 %Y"
@@ -31,7 +35,7 @@ from_date = convert_str_to_datetime(FROM_DATE_STR)
 def authenticate():
 	## Pulling twitter login credentials from "config" file
 	## The file should have the consumer key, consumer secret, access token, and access token secret in that order, separated by newlines.
-	config = open("config/twitter_config_2.txt").read().split()
+	config = open(config_file).read().split()
 	consumer_key = config[0]
 	consumer_secret = config[1]
 	access_token = config[2]
@@ -126,13 +130,13 @@ api = authenticate()
 
 ## Load list of uids to collect
 all_uids = []
-with open("harvey_ids_2.csv") as f:
+with open(input_list) as f:
 	reader = csv.reader(f)
 	for row in reader:
 		all_uids.append(row[0])
 
 ## Get a list of uids we've already collected by seeing which JSON files we have (so we don't collect on the same users twice)
-completed_uids = set([fname.split('.')[0] for fname in os.listdir("json_data_2")])
+completed_uids = set([fname.split('.')[0] for fname in os.listdir(output_dir)])
 
 
 ## Figure out which uids are left
@@ -153,7 +157,7 @@ for uid in uids_remaining:
 			data = {"user_id":uid, "utc_timestamp":utc_now, "historic_tweets":historic_tweets}
 
 			## Dump the JSON into a file with the name <uid>.json
-			with open("json_data_2/" + str(uid) + ".json", "w+") as data_file:
+			with open(output_dir + "/" + str(uid) + ".json", "w+") as data_file:
 				json.dump(data, data_file)
 
 			## Print out how many tweets we've collected per user id (for debugging)
