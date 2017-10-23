@@ -31,7 +31,7 @@ from_date = convert_str_to_datetime(FROM_DATE_STR)
 def authenticate():
 	## Pulling twitter login credentials from "config" file
 	## The file should have the consumer key, consumer secret, access token, and access token secret in that order, separated by newlines.
-	config = open("config/twitter_config_1.txt").read().split()
+	config = open("config/twitter_config_2.txt").read().split()
 	consumer_key = config[0]
 	consumer_secret = config[1]
 	access_token = config[2]
@@ -64,10 +64,16 @@ def get_historic_tweets_before_id(api, uid, max_id=None):
 	try:
 		for page in tweepy.Cursor(api.user_timeline, **cursor_args).pages(16):
 			## Adding the tweets to the list
-			tweets.extend([tweet._json for tweet in page])
 
-			## We get 900 requests per 15-minute window, or 1 request/second, so wait 1 second between each request just to be safe
-			time.sleep(1)
+			json_tweets = [tweet._json for tweet in page]
+			tweets.extend(json_tweets)
+
+			if any(convert_str_to_datetime(tweet['created_at']) < from_date for tweet in json_tweets):
+				## We've already gone as far back as we need to, so quit looping through pages of tweets
+				break
+			else:
+				## We get 900 requests per 15-minute window, or 1 request/second, so wait 1 second between each request just to be safe
+				time.sleep(1)
 	
 	except tweepy.RateLimitError:
 		## We received a rate limiting error, so wait 15 minutes
@@ -79,9 +85,9 @@ def get_historic_tweets_before_id(api, uid, max_id=None):
 	if tweets:
 		max_id, oldest_tweet_date = tweets[0]['id'], convert_str_to_datetime(tweets[0]['created_at'])
 		for tweet in tweets[1:]:
-			print(max_id)
-			print(oldest_tweet_date)
-			print('')
+			# print(max_id)
+			# print(oldest_tweet_date)
+			# print('')
 			if tweet['id'] < max_id:
 				max_id = tweet['id']
 				oldest_tweet_date = convert_str_to_datetime(tweet['created_at'])
