@@ -71,15 +71,20 @@ def get_historic_tweets_before_id(api, uid, max_id=None):
 			## Adding the tweets to the list
 
 			json_tweets = [tweet._json for tweet in page]
-			tweets.extend(json_tweets)
 
 			if any(convert_str_to_datetime(tweet['created_at']) < from_date for tweet in json_tweets) or len(page)==1:
 				## We've already gone as far back as we need to, so quit looping through pages of tweets
 				finished = True
-				break
+				## Filter out any older tweets
+				json_tweets = [tweet for tweet in json_tweets if convert_str_to_datetime(tweet['created_at']) >= from_date]
 			else:
 				## We get 900 requests per 15-minute window, or 1 request/second, so wait 1 second between each request just to be safe
 				time.sleep(1)
+
+			tweets.extend(json_tweets)
+
+			if finished:
+				break
 	
 	except tweepy.error.TweepError as ex:
 		## We received a rate limiting error, so wait 15 minutes
