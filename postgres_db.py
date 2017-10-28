@@ -15,17 +15,17 @@ INCLUDE_PARENT_TWEETS = False
 
 # Create table objects
 tweet_table_fields = [
-	Field("tweetId", "BIGINT(20)", is_primary_key=True),
+	Field("tweetId", "BIGINT", is_primary_key=True),
 	Field("truncated", "BOOLEAN"),
 	Field("isQuoteStatus", "BOOLEAN"),
-	Field("inReplyToStatusId", "BIGINT(20)"),
-	Field("favoriteCount", "INT(11)"),
+	Field("inReplyToStatusId", "BIGINT"),
+	Field("favoriteCount", "BIGINT"),
 	Field("source", "TEXT"),
-	Field("coordinates_x", "FLOAT(8,8)"),
-	Field("coordinates_y", "FLOAT(8,8)"),
+	Field("coordinates_x", "FLOAT(16,8)"),
+	Field("coordinates_y", "FLOAT(16,8)"),
 	Field("inReplyToScreenName", "VARCHAR(45)"),
-	Field("retweetCount", "INT(11)"),
-	Field("inReplyToUserId", "BIGINT(20)"),
+	Field("retweetCount", "BIGINT"),
+	Field("inReplyToUserId", "BIGINT"),
 	Field("lang", "VARCHAR(10)"),
 	Field("createdAt", "TIMESTAMP"),
 	Field("collectedAt", "TIMESTAMP")
@@ -34,12 +34,12 @@ tweet_table = Table("Tweet", tweet_table_fields, prefix=TABLE_PREFIX)
 tweet_foreign_key = tweet_table.get_field("tweetId")
 
 tweetuser_table_fields = [
-	Field("tweetId", "BIGINT(20)", is_primary_key=True, foreign_key=tweet_foreign_key, foreign_key_table=tweet_table),
-	Field("userId", "BIGINT(20)"),
+	Field("tweetId", "BIGINT", is_primary_key=True, foreign_key=tweet_foreign_key, foreign_key_table=tweet_table),
+	Field("userId", "BIGINT"),
 	Field("timeZone", "VARCHAR(20)"),
 	Field("verified", "BOOLEAN"),
 	Field("geoEnabled", "BOOLEAN"),
-	Field("followersCount", "INT(11)"),
+	Field("followersCount", "BIGINT"),
 	Field("protected", "BOOLEAN"),
 	Field("lang", "VARCHAR(10)"),
 	Field("utcOffset", "INT(11)"),
@@ -57,22 +57,22 @@ tweetuser_table_fields = [
 tweetuser_table = Table("TweetUser", tweetuser_table_fields, prefix=TABLE_PREFIX)
 
 tweethashtag_table_fields = [
-	Field("tweetId", "BIGINT(20)", is_primary_key=True, foreign_key=tweet_foreign_key, foreign_key_table=tweet_table),
+	Field("tweetId", "BIGINT", is_primary_key=True, foreign_key=tweet_foreign_key, foreign_key_table=tweet_table),
 	Field("hashtag", "TEXT")
 ]
 tweethashtag_table = Table("TweetHashtag", tweethashtag_table_fields, prefix=TABLE_PREFIX)
 
 tweetmention_table_fields = [
-	Field("tweetId", "BIGINT(20)", is_primary_key=True, foreign_key=tweet_foreign_key, foreign_key_table=tweet_table),
-	Field("userId", "BIGINT(20)"),
-	Field("mentionedId", "BIGINT(20)"),
+	Field("tweetId", "BIGINT", is_primary_key=True, foreign_key=tweet_foreign_key, foreign_key_table=tweet_table),
+	Field("userId", "BIGINT"),
+	Field("mentionedId", "BIGINT"),
 	Field("mentionedScreenName", "VARCHAR(45)"),
 	Field("mentionedName", "VARCHAR(128)")
 ]
 tweetmention_table = Table("TweetMention", tweetmention_table_fields, prefix=TABLE_PREFIX)
 
 tweeturl_table_fields = [
-	Field("tweetId", "BIGINT(20)", is_primary_key=True, foreign_key=tweet_foreign_key, foreign_key_table=tweet_table),
+	Field("tweetId", "BIGINT", is_primary_key=True, foreign_key=tweet_foreign_key, foreign_key_table=tweet_table),
 	Field("url", "TEXT"),
 	Field("display_url", "TEXT"),
 	Field("expanded_url", "TEXT")
@@ -80,8 +80,8 @@ tweeturl_table_fields = [
 tweeturl_table = Table("TweetUrl", tweeturl_table_fields, prefix=TABLE_PREFIX)
 
 tweetplace_table_fields = [
-	Field("tweetId", "BIGINT(20)", is_primary_key=True, foreign_key=tweet_foreign_key, foreign_key_table=tweet_table),
-	Field("boundingBoxJson", "JSON"),
+	Field("tweetId", "BIGINT", is_primary_key=True, foreign_key=tweet_foreign_key, foreign_key_table=tweet_table),
+	Field("boundingBoxJson", "TEXT"),
 	Field("country", "VARCHAR(128)"),
 	Field("countryCode", "VARCHAR(10)"),
 	Field("fullName", "TEXT"),
