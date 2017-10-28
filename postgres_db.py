@@ -30,7 +30,7 @@ tweet_table_fields = [
 	Field("createdAt", "TIMESTAMP"),
 	Field("collectedAt", "TIMESTAMP")
 ]
-tweet_table = Table("Tweet", tweet_table_fields, prefix=TABLE_PREFIX, if_not_exists=True)
+tweet_table = Table("Tweet", tweet_table_fields, prefix=TABLE_PREFIX)
 tweet_foreign_key = tweet_table.get_field("tweetId")
 
 tweetuser_table_fields = [
@@ -54,13 +54,13 @@ tweetuser_table_fields = [
 	Field("location", "VARCHAR(256)"),
 	Field("collectedAt", "TIMESTAMP")
 ]
-tweetuser_table = Table("TweetUser", tweetuser_table_fields, prefix=TABLE_PREFIX, if_not_exists=True)
+tweetuser_table = Table("TweetUser", tweetuser_table_fields, prefix=TABLE_PREFIX)
 
 tweethashtag_table_fields = [
 	Field("tweetId", "BIGINT(20)", is_primary_key=True, foreign_key=tweet_foreign_key, foreign_key_table=tweet_table),
 	Field("hashtag", "TEXT")
 ]
-tweethashtag_table = Table("TweetHashtag", tweethashtag_table_fields, prefix=TABLE_PREFIX, if_not_exists=True)
+tweethashtag_table = Table("TweetHashtag", tweethashtag_table_fields, prefix=TABLE_PREFIX)
 
 tweetmention_table_fields = [
 	Field("tweetId", "BIGINT(20)", is_primary_key=True, foreign_key=tweet_foreign_key, foreign_key_table=tweet_table),
@@ -69,7 +69,7 @@ tweetmention_table_fields = [
 	Field("mentionedScreenName", "VARCHAR(45)"),
 	Field("mentionedName", "VARCHAR(128)")
 ]
-tweetmention_table = Table("TweetMention", tweetmention_table_fields, prefix=TABLE_PREFIX, if_not_exists=True)
+tweetmention_table = Table("TweetMention", tweetmention_table_fields, prefix=TABLE_PREFIX)
 
 tweeturl_table_fields = [
 	Field("tweetId", "BIGINT(20)", is_primary_key=True, foreign_key=tweet_foreign_key, foreign_key_table=tweet_table),
@@ -77,7 +77,7 @@ tweeturl_table_fields = [
 	Field("display_url", "TEXT"),
 	Field("expanded_url", "TEXT")
 ]
-tweeturl_table = Table("TweetUrl", tweeturl_table_fields, prefix=TABLE_PREFIX, if_not_exists=True)
+tweeturl_table = Table("TweetUrl", tweeturl_table_fields, prefix=TABLE_PREFIX)
 
 tweetplace_table_fields = [
 	Field("tweetId", "BIGINT(20)", is_primary_key=True, foreign_key=tweet_foreign_key, foreign_key_table=tweet_table),
@@ -89,7 +89,7 @@ tweetplace_table_fields = [
 	Field("placeName", "VARCHAR(128)"),
 	Field("placeUrl", "TEXT")
 ]
-tweetplace_table = Table("TweetPlace", tweetplace_table_fields, prefix=TABLE_PREFIX, if_not_exists=True)
+tweetplace_table = Table("TweetPlace", tweetplace_table_fields, prefix=TABLE_PREFIX)
 
 all_tables = [tweet_table, tweetuser_table, tweethashtag_table, tweetmention_table, tweeturl_table, tweetplace_table]
 
@@ -179,8 +179,8 @@ cursor = db.cursor()
 ## Creating tables in the database if they don't exist
 for table in all_tables:
 	if DROP_EXISTING_TABLES:
-		cursor.execute(table.get_drop_statement())
-	cursor.execute(table.get_create_statement())
+		cursor.execute(table.get_drop_statement(if_exists=True))
+	cursor.execute(table.get_create_statement(if_not_exists=True))
 
 input_json_dir = sys.argv[2]
 json_files = [f for f in os.listdir(input_json_dir) if (len(f) > 5 and f[-5:]==".json")]

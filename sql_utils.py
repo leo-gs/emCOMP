@@ -42,19 +42,19 @@ class Field():
 
 class Table():
 
-	def __init__(self, name, fields, prefix="", if_not_exists=False):
+	def __init__(self, name, fields, prefix=""):
 		if prefix:
 			name = prefix + name
 		self.name = name
 		self.fields = fields
-		self.if_not_exists = if_not_exists
 
-	def get_drop_statement(self):
-		drop_statement = "DROP TABLE {table_name};".format(table_name=self.name)
+	def get_drop_statement(self, if_exists=False):
+		if_exists_clause = " IF EXISTS"
+		drop_statement = "DROP TABLE{if_exists} {table_name};".format(table_name=self.name, if_exists=if_exists_clause)
 		return drop_statement
 
-	def get_create_statement(self):
-		if_not_exists_clause = " IF NOT EXISTS " if self.if_not_exists else ""
+	def get_create_statement(self, if_not_exists=False):
+		if_not_exists_clause = " IF NOT EXISTS" if if_not_exists else ""
 		
 		field_strs = [field.get_insert_clause() for field in self.fields]
 
@@ -67,7 +67,7 @@ class Table():
 		for foreign_key in foreign_keys:
 			field_strs.append(foreign_key)
 
-		create_statement = "CREATE TABLE{if_not_exists}{table_name}({fields});".format(
+		create_statement = "CREATE TABLE{if_not_exists} {table_name}({fields});".format(
 				if_not_exists=if_not_exists_clause,
 				table_name=self.name,
 				fields=", ".join(field_strs))
