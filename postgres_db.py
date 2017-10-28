@@ -1,13 +1,17 @@
+'''
+Usage python postres_db.py db_config.txt json_files_dir
+'''
+
 import datetime
 import json
 import os
-#import psycopg2
+import psycopg2
 from sql_utils import Field, Table
 import sys
 
 TABLE_PREFIX = "Harvey"
 DROP_EXISTING_TABLES = True
-INCLUDE_PARENT_TWEETS = True
+INCLUDE_PARENT_TWEETS = False
 
 # Create table objects
 tweet_table_fields = [
@@ -28,8 +32,6 @@ tweet_table_fields = [
 ]
 tweet_table = Table("Tweet", tweet_table_fields, prefix=TABLE_PREFIX, if_not_exists=True)
 tweet_foreign_key = tweet_table.get_field("tweetId")
-
-print(tweet_table.get_insert_statement())
 
 tweetuser_table_fields = [
 	Field("tweetId", "BIGINT(20)", is_primary_key=True, foreign_key=tweet_foreign_key, foreign_key_table=tweet_table),
@@ -166,17 +168,18 @@ def get_tweetplace_tuple(tweet, collectedAt):
 #####################################
 #####################################
 
+## Connecting to the database
 config = {}
 for line in open(sys.argv[1]).readlines():
 	key, value = line.strip().split("=")
 	config[key] = value
-
 db = psycopg2.connect(**config)
 cursor = db.cursor()
 
+## Creating tables in the database if they don't exist
 for table in all_tables:
 	if DROP_EXISTING_TABLES:
-		cursor.execute(table.get_drop_statement)
+		cursor.execute(table.get_drop_statement())
 	cursor.execute(table.get_create_statement())
 
 input_json_dir = sys.argv[2]
