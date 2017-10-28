@@ -54,7 +54,7 @@ def authenticate():
 ## Returns the minimum id of the list of tweets (i.e. the id corresponding to the earliest tweet)
 def get_historic_tweets_before_id(api, uid, max_id=None):
 	## Printing out the user id (for debugging)
-	print(uid)
+	#print(uid)
 
 	## List of tweets we've collected so far
 	tweets = []
@@ -94,10 +94,13 @@ def get_historic_tweets_before_id(api, uid, max_id=None):
 
 			## Try again
 			return get_historic_tweets_before_id(api, uid, max_id)
+		elif any(code in str(ex) for code in ["401", "404"]):
+			return (None, True, [])
+			
 		else:
 			print(uid)
 			print(ex)
-			return (None, True, tweets)
+			return (None, True, [])
 
 	if tweets:
 		max_id = tweets[0]['id']
@@ -106,13 +109,15 @@ def get_historic_tweets_before_id(api, uid, max_id=None):
 				max_id = tweet['id']
 
 		return (max_id, finished, tweets)
+	
+	else:
+		return (None, True, [])
 
 ## Get a uid's tweets since FROM_DATE
 def get_historic_tweets(api, uid):
 	max_id, finished, tweets = None, False, []
 	while not finished:
 		max_id, finished, returned_tweets = get_historic_tweets_before_id(api, uid, max_id)
-		print("1. " + str(len(returned_tweets)) + " total returned, max_id=" + str(max_id))
 
 		if returned_tweets:
 			tweets.extend(returned_tweets)
@@ -149,7 +154,6 @@ for uid in uids_remaining:
 
 	## Pull the tweets using Tweepy
 	historic_tweets = get_historic_tweets(api, uid)
-	print(str(len(historic_tweets)) + " tweets collected")
 
 	if historic_tweets:
 		## Add the uid and the timestamp to the JSON
@@ -159,5 +163,3 @@ for uid in uids_remaining:
 		with open(output_dir + "/" + str(uid) + ".json", "w+") as data_file:
 			json.dump(data, data_file)
 
-		## Print out how many tweets we've collected per user id (for debugging)
-		print(str(uid) + ': ' + str(len(historic_tweets)) + ' tweets collected')
