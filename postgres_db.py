@@ -12,13 +12,14 @@ from sql_utils import Field, Table
 import sys
 import time
 
-TABLE_PREFIX = "LocTerm_"
+TABLE_PREFIX = "Geo_"
 DROP_EXISTING_TABLES = False
 INCLUDE_PARENT_TWEETS = False
 
 # Create table objects
 tweet_table_fields = [
 	Field("tweetId", "BIGINT", is_primary_key=True),
+        Field("text", "TEXT"),
 	Field("truncated", "BOOLEAN"),
 	Field("isQuoteStatus", "BOOLEAN"),
 	Field("inReplyToStatusId", "BIGINT"),
@@ -99,13 +100,15 @@ all_tables = [tweet_table, tweetuser_table, tweethashtag_table, tweetmention_tab
 def batch_insert(cursor, table, rows):
 	fields_required = len(table.fields)
 	for row in rows:
-		assert len(row)==fields_required, "Row has incorrect number of fields: " + str(row)
-        
+	    assert len(row)==fields_required, "Row has incorrect number of fields: " + str(row)
 
-	ext.execute_batch(cursor, table.get_insert_statement(), rows)
+        ext.execute_batch(cursor, table.get_insert_statement(), rows)
 
 #####################################
 #####################################
+
+def clean(text):
+    return text.replace("\x00", "") if text else None
 
 def convert_timestring_to_timestamp(datetimestr):
     datetime = parser.parse(datetimestr)
@@ -113,6 +116,7 @@ def convert_timestring_to_timestamp(datetimestr):
 
 def get_tweet_tuple(tweet, collectedAt):
 	tweetId = tweet["id_str"]
+        text = clean(tweet["text"])
 	truncated = tweet["truncated"]
 	isQuoteStatus = tweet["is_quote_status"]
 	inReplyToStatusId = tweet["in_reply_to_status_id"]
@@ -122,13 +126,13 @@ def get_tweet_tuple(tweet, collectedAt):
 	if "coordinates" in tweet and tweet["coordinates"] is not None:
 		coordinates_x = tweet["coordinates"]["coordinates"][0]
 		coordinates_y = tweet["coordinates"]["coordinates"][1]
-	inReplyToScreenName = tweet["in_reply_to_screen_name"]
+	inReplyToScreenName = clean(tweet["in_reply_to_screen_name"])
 	retweetCount = tweet["retweet_count"]
 	inReplyToUserId = tweet["in_reply_to_user_id"]
 	tweet_lang = tweet["lang"]
 	tweet_createdAt = convert_timestring_to_timestamp(tweet["created_at"])
 
-	return (tweetId, truncated, isQuoteStatus, inReplyToStatusId, favoriteCount, source, coordinates_x, coordinates_y, inReplyToScreenName, retweetCount, inReplyToUserId, tweet_lang, tweet_createdAt, collectedAt)
+	return (tweetId, text, truncated, isQuoteStatus, inReplyToStatusId, favoriteCount, source, coordinates_x, coordinates_y, inReplyToScreenName, retweetCount, inReplyToUserId, tweet_lang, tweet_createdAt, collectedAt)
 
 def get_tweetuser_tuple(tweet, collectedAt):
 	tweetId = tweet["id_str"]
@@ -143,14 +147,14 @@ def get_tweetuser_tuple(tweet, collectedAt):
 	user_lang = tweetuser["lang"]
 	utcOffset = tweetuser["utc_offset"]
 	statusesCount = tweetuser["statuses_count"]
-	description = tweetuser["description"]
+	description = clean(tweetuser["description"])
 	friendsCount = tweetuser["friends_count"]
-	name = tweetuser["name"]
+	name = clean(tweetuser["name"])
 	favoritesCount = tweetuser["favourites_count"]
-	screenName = tweetuser["screen_name"]
+	screenName = clean(tweetuser["screen_name"])
 	url = tweetuser["url"]
 	user_createdAt = tweetuser["created_at"]
-	location = tweetuser["location"]
+	location = clean(tweetuser["location"])
 
 	return (tweetId, userId, timeZone, verified, geoEnabled, followersCount, protected, user_lang, utcOffset, statusesCount, description, friendsCount, name, favoritesCount, screenName, url, user_createdAt, location, collectedAt)
 
@@ -191,7 +195,7 @@ for table in all_tables:
 cursor.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='public'")
 print(cursor.fetchall())
 
-cursor.execute("SELECT DISTINCT userid FROM " + tweet_table.name + ";")
+cursor.execute("SELECT DISTINCT userid::TEXT FROM " + tweetuser_table.name + ";")
 users_processed = set([row[0] for row in cursor.fetchall()])
 
 input_json_dir = sys.argv[2]
@@ -240,14 +244,14 @@ for f in json_files:
 		if entities:
 			if "hashtags" in entities:
 				for hashtag in entities["hashtags"]:
-					tweethashtag_tuples.append((tweetId, hashtag["text"]))
+					tweethashtag_tuples.append((tweetId, clean(hashtag["text"])))
 
 			if "user_mentions" in entities:
                                 userId = tweet["user"]["id_str"]
 				for mention in entities["user_mentions"]:
 					mentionedId = mention["id_str"]
-					mentionedScreenName = mention["screen_name"]
-					mentionedName = mention["name"]
+					mentionedScreenName = clean(mention["screen_name"])
+					mentionedName = clean(mention["name"])
 
 					tweetmention_tuples.append((tweetId, userId, mentionedId, mentionedScreenName, mentionedName))
 
