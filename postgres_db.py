@@ -98,7 +98,7 @@ def batch_insert(cursor, table, rows):
 	for row in rows:
 		assert len(row)==fields_required, "Row has incorrect number of fields: " + str(row)
 
-	psycopg2.extras.execute_batch(cursor, table.get_insert_statement(), rows)
+	psycopg2.extras.execute_batch(cursor, table.get_insert_statement(on_duplicate_ignore=True), rows)
 
 #####################################
 #####################################
