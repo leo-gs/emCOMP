@@ -3,13 +3,16 @@ Usage python postres_db.py db_config.txt json_files_dir
 '''
 
 import datetime
+from dateutil import parser
 import json
 import os
 import psycopg2
+from psycopg2 import extras as ext
 from sql_utils import Field, Table
 import sys
+import time
 
-TABLE_PREFIX = "Harvey"
+TABLE_PREFIX = "LocTerm_"
 DROP_EXISTING_TABLES = True
 INCLUDE_PARENT_TWEETS = False
 
@@ -36,7 +39,7 @@ tweet_foreign_key = tweet_table.get_field("tweetId")
 tweetuser_table_fields = [
 	Field("tweetId", "BIGINT", is_primary_key=True, foreign_key=tweet_foreign_key, foreign_key_table=tweet_table),
 	Field("userId", "BIGINT"),
-	Field("timeZone", "VARCHAR(20)"),
+	Field("timeZone", "VARCHAR(45)"),
 	Field("verified", "BOOLEAN"),
 	Field("geoEnabled", "BOOLEAN"),
 	Field("followersCount", "BIGINT"),
@@ -57,13 +60,13 @@ tweetuser_table_fields = [
 tweetuser_table = Table("TweetUser", tweetuser_table_fields, prefix=TABLE_PREFIX)
 
 tweethashtag_table_fields = [
-	Field("tweetId", "BIGINT", is_primary_key=True, foreign_key=tweet_foreign_key, foreign_key_table=tweet_table),
+	Field("tweetId", "BIGINT", foreign_key=tweet_foreign_key, foreign_key_table=tweet_table),
 	Field("hashtag", "TEXT")
 ]
 tweethashtag_table = Table("TweetHashtag", tweethashtag_table_fields, prefix=TABLE_PREFIX)
 
 tweetmention_table_fields = [
-	Field("tweetId", "BIGINT", is_primary_key=True, foreign_key=tweet_foreign_key, foreign_key_table=tweet_table),
+	Field("tweetId", "BIGINT", foreign_key=tweet_foreign_key, foreign_key_table=tweet_table),
 	Field("userId", "BIGINT"),
 	Field("mentionedId", "BIGINT"),
 	Field("mentionedScreenName", "VARCHAR(45)"),
@@ -72,7 +75,7 @@ tweetmention_table_fields = [
 tweetmention_table = Table("TweetMention", tweetmention_table_fields, prefix=TABLE_PREFIX)
 
 tweeturl_table_fields = [
-	Field("tweetId", "BIGINT", is_primary_key=True, foreign_key=tweet_foreign_key, foreign_key_table=tweet_table),
+	Field("tweetId", "BIGINT", foreign_key=tweet_foreign_key, foreign_key_table=tweet_table),
 	Field("url", "TEXT"),
 	Field("display_url", "TEXT"),
 	Field("expanded_url", "TEXT")
@@ -80,7 +83,7 @@ tweeturl_table_fields = [
 tweeturl_table = Table("TweetUrl", tweeturl_table_fields, prefix=TABLE_PREFIX)
 
 tweetplace_table_fields = [
-	Field("tweetId", "BIGINT", is_primary_key=True, foreign_key=tweet_foreign_key, foreign_key_table=tweet_table),
+	Field("tweetId", "BIGINT", foreign_key=tweet_foreign_key, foreign_key_table=tweet_table),
 	Field("boundingBoxJson", "TEXT"),
 	Field("country", "VARCHAR(128)"),
 	Field("countryCode", "VARCHAR(10)"),
@@ -97,8 +100,9 @@ def batch_insert(cursor, table, rows):
 	fields_required = len(table.fields)
 	for row in rows:
 		assert len(row)==fields_required, "Row has incorrect number of fields: " + str(row)
+        
 
-	psycopg2.extras.execute_batch(cursor, table.get_insert_statement(on_duplicate_ignore=True), rows)
+	ext.execute_batch(cursor, table.get_insert_statement(), rows)
 
 #####################################
 #####################################
@@ -174,21 +178,26 @@ for line in open(sys.argv[1]).readlines():
 	key, value = line.strip().split("=")
 	config[key] = value
 db = psycopg2.connect(**config)
+time.sleep(5)
 cursor = db.cursor()
 
 ## Creating tables in the database if they don't exist
-for table in all_tables:
+for table in reversed(all_tables):
 	if DROP_EXISTING_TABLES:
 		cursor.execute(table.get_drop_statement(if_exists=True))
-	cursor.execute(table.get_create_statement(if_not_exists=True))
+for table in all_tables:
+    cursor.execute(table.get_create_statement(if_not_exists=True))
+
+cursor.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='public'")
+print(cursor.fetchall())
 
 input_json_dir = sys.argv[2]
 json_files = [f for f in os.listdir(input_json_dir) if (len(f) > 5 and f[-5:]==".json")]
 for f in json_files:
-	json_data = json.load(os.path.join(input_json_dir, f))
-
+	json_data = json.load(open(os.path.join(input_json_dir, f)))
+        print(f)
 	tweets = json_data["historic_tweets"]
-	collectedAt = convert_timestring_to_timestamp(tweet_json["utc_timestamp"])
+	collectedAt = convert_timestring_to_timestamp(json_data["utc_timestamp"])
 
 	tweet_tuples = []
 	tweetuser_tuples = []
@@ -196,9 +205,14 @@ for f in json_files:
 	tweethashtag_tuples = []
 	tweetmention_tuples = []
 	tweeturl_tuples = []
+        
+        tweets_processed = set()
 
 	for tweet in tweets:
 		tweetId = tweet["id_str"]
+
+                if tweetId in tweets_processed:
+                    continue
 
 		tweet_tuples.append(get_tweet_tuple(tweet, collectedAt))
 		tweetuser_tuples.append(get_tweetuser_tuple(tweet, collectedAt))
@@ -221,6 +235,7 @@ for f in json_files:
 					tweethashtag_tuples.append((tweetId, hashtag["text"]))
 
 			if "user_mentions" in entities:
+                                userId = tweet["user"]["id_str"]
 				for mention in entities["user_mentions"]:
 					mentionedId = mention["id_str"]
 					mentionedScreenName = mention["screen_name"]
@@ -234,10 +249,12 @@ for f in json_files:
 					display_url = url["display_url"]
 					expanded_url = url["expanded_url"]
 
-					tweeturl_tuples.append((tweetId, entity_url, display_url))
+					tweeturl_tuples.append((tweetId, entity_url, display_url, expanded_url))
+                tweets_processed.add(tweetId)
 
+        print(str(len(tweet_tuples)) + " tweets to insert")
 	batch_insert(cursor, tweet_table, tweet_tuples)
-	batch_insert(cursor, tweetuser_table, tweeturl_table)
+	batch_insert(cursor, tweetuser_table, tweetuser_tuples)
 	batch_insert(cursor, tweetplace_table, tweetplace_tuples)
 	batch_insert(cursor, tweethashtag_table, tweethashtag_tuples)
 	batch_insert(cursor, tweetmention_table, tweetmention_tuples)

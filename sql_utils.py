@@ -74,17 +74,14 @@ class Table():
 
 		return create_statement
 
-	def get_insert_statement(self, on_duplicate_ignore=False):
+	def get_insert_statement(self):
 		row_template = ",".join([field.name for field in self.fields])
 
-		on_duplicate_key_ignore_clause = " ON DUPLICATE KEY IGNORE"
-
-		insert_statement = "INSERT INTO {table_name} ({row_template}) VALUES ({value_flags}){on_duplicate_key_ignore}".format(
+		insert_statement = "INSERT INTO {table_name} ({row_template}) VALUES ({value_flags})".format(
 			table_name=self.name,
 			row_template=row_template,
-			value_flags=",".join(["%s" for field in self.fields]),
-			on_duplicate_key_ignore=on_duplicate_key_ignore_clause if on_duplicate_ignore else "")
-
+			value_flags=",".join(["%s" for field in self.fields]))
+                
 		return insert_statement
 
 	def get_field(self, name):
