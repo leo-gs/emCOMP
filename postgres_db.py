@@ -13,7 +13,7 @@ import sys
 import time
 
 TABLE_PREFIX = "LocTerm_"
-DROP_EXISTING_TABLES = True
+DROP_EXISTING_TABLES = False
 INCLUDE_PARENT_TWEETS = False
 
 # Create table objects
@@ -191,9 +191,17 @@ for table in all_tables:
 cursor.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='public'")
 print(cursor.fetchall())
 
+cursor.execute("SELECT DISTINCT userid FROM " + tweet_table.name + ";")
+users_processed = set([row[0] for row in cursor.fetchall()])
+
 input_json_dir = sys.argv[2]
 json_files = [f for f in os.listdir(input_json_dir) if (len(f) > 5 and f[-5:]==".json")]
 for f in json_files:
+
+	userId = f.split(".")[0] # JSON files are named by user_id
+	if userId in users_processed:
+		continue
+
 	json_data = json.load(open(os.path.join(input_json_dir, f)))
         print(f)
 	tweets = json_data["historic_tweets"]
@@ -206,13 +214,13 @@ for f in json_files:
 	tweetmention_tuples = []
 	tweeturl_tuples = []
         
-        tweets_processed = set()
+	tweets_processed = set()
 
 	for tweet in tweets:
 		tweetId = tweet["id_str"]
 
-                if tweetId in tweets_processed:
-                    continue
+		if tweetId in tweets_processed:
+			continue
 
 		tweet_tuples.append(get_tweet_tuple(tweet, collectedAt))
 		tweetuser_tuples.append(get_tweetuser_tuple(tweet, collectedAt))
