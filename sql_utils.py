@@ -19,7 +19,7 @@ print(t2.get_create_statement())
 class Field():
 
 	def __init__(self, name, datatype, is_primary_key=False, foreign_key=None, foreign_key_table=None):
-		self.name = name
+		self.name = "\"" + name + "\""
 		self.datatype = datatype
 		self.is_primary_key = is_primary_key
 		self.foreign_key = foreign_key
