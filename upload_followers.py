@@ -23,7 +23,7 @@ follower_fields = [
 	Field("user_id", "BIGINT"),
 	Field("follower_id", "BIGINT"),
 ]
-follower_table = Table(TABLE_NAME, follower_fields)
+followers_table = Table(TABLE_NAME, follower_fields)
 
 metadata_fields = [
 	Field("user_id", "BIGINT"),
@@ -38,7 +38,7 @@ def batch_insert(cursor, table, rows):
 	for row in rows:
 		assert len(row)==fields_required, "Row has incorrect number of fields: " + str(row)
 
-		ext.execute_batch(cursor, table.get_insert_statement(), rows)
+	ext.execute_batch(cursor, table.get_insert_statement(), rows)
 
 #####################################
 #####################################
@@ -99,7 +99,7 @@ for f in json_files:
 	user_id = json_data["user_id"]
 
 	followers = json_data["followers"]
-	follower_tuples = [(user_id, follower_id for follower_id in followers)]
+        follower_tuples = [(user_id, follower_id) for follower_id in followers]
 
 	collected_at = json_data["utc_timestamp"]
 	collected_ts = convert_timestring_to_timestamp(collected_at)
@@ -107,7 +107,7 @@ for f in json_files:
 	followers_collected_count = len(followers)
 
 	batch_insert(cursor, followers_table, follower_tuples)
-	batch_insert(cursor, metadata_table, (user_id, collected_at, collected_ts, followers_collected_count))
+	batch_insert(cursor, metadata_table, [(user_id, collected_at, collected_ts, followers_collected_count)])
 
 	db.commit()
 	inserted_count = inserted_count + 1

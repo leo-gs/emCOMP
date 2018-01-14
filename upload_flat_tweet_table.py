@@ -13,7 +13,7 @@ import sys
 import time
 
 TABLE_NAME = "Timelines"
-DROP_EXISTING_TABLES = False
+DROP_EXISTING_TABLES = True
 
 db_config = sys.argv[1]
 input_json_dir = sys.argv[2]
@@ -34,7 +34,7 @@ tweet_table_fields = [
 	Field("coordinates", "JSON"),
 	Field("place", "JSON"),
 	Field("possibly_sensitive", "BOOLEAN"),
-	Field("user", "json"),
+	Field("user", "JSON"),
 	Field("user_id", "BIGINT"),
 	Field("user_screen_name", "VARCHAR(140)"),
 	Field("user_follower_count", "BIGINT"),
@@ -50,12 +50,13 @@ tweet_table_fields = [
 	Field("user_lang", "VARCHAR(8)"),
 	Field("user_listed_count", "BIGINT"),
 	Field("user_name", "VARCHAR(140)"),
-	Field("user_url", "VARCHAR(512"),
+	Field("user_url", "VARCHAR(512)"),
 	Field("user_utc_offset", "BIGINT"),
 	Field("user_verified", "BOOLEAN"),
 	Field("user_profile_use_background_image", "BOOLEAN"),
 	Field("user_default_profile_image", "BOOLEAN"),
-	Field("user_profile_text_color", "VARCHAR(16)")
+        Field("user_profile_sidebar_fill_color", "VARCHAR(26)"),
+	Field("user_profile_text_color", "VARCHAR(16)"),
 	Field("user_profile_sidebar_border_color", "VARCHAR(16)"),
 	Field("user_profile_background_color", "VARCHAR(16)"),
 	Field("user_profile_link_color", "VARCHAR(16)"),
@@ -92,7 +93,7 @@ def batch_insert(cursor, table, rows):
 	for row in rows:
 		assert len(row)==fields_required, "Row has incorrect number of fields: " + str(row)
 
-		ext.execute_batch(cursor, table.get_insert_statement(), rows)
+	ext.execute_batch(cursor, table.get_insert_statement(), rows)
 
 #####################################
 #####################################
@@ -101,8 +102,9 @@ def clean(text):
 	return text.replace("\x00", "") if text else None
 
 def convert_timestring_to_timestamp(datetimestr):
-	datetime = parser.parse(datetimestr)
-	return datetime.strftime('%Y-%m-%d %H:%M:%S')
+        if datetimestr:
+                datetime = parser.parse(datetimestr)
+	        return datetime.strftime('%Y-%m-%d %H:%M:%S')
 
 def get_nested_value(_dict, path, default=None):
 	""" gets value from a nested value """
@@ -137,12 +139,13 @@ for line in open(db_config).readlines():
 	key, value = line.strip().split("=")
 	config[key] = value
 db = psycopg2.connect(**config)
-time.sleep(5)
 cursor = db.cursor()
 
 ## Creating tables in the database if they don't exist
 if DROP_EXISTING_TABLES:
 	cursor.execute(tweet_table.get_drop_statement(if_exists=True))
+
+print(tweet_table.get_create_statement(if_not_exists=True))
 cursor.execute(tweet_table.get_create_statement(if_not_exists=True))
 
 inserted_count = 0
@@ -150,7 +153,7 @@ json_files = [f for f in os.listdir(input_json_dir) if (len(f) > 5 and f[-5:]=="
 for f in json_files:
 	tweet_tuples = []
 
-	json_data = json.load(open(f))
+	json_data = json.load(open(os.path.join(input_json_dir, f)))
 	tweets = json_data["historic_tweets"]
 
 	collected_at = json_data["utc_timestamp"]
@@ -162,7 +165,7 @@ for f in json_files:
 		collected_at,
 		collected_ts,
 		get_nested_value(tweet, "created_at"),
-		convert_timestring_to_timestamp(get_nested_value("created_at")),
+		convert_timestring_to_timestamp(get_nested_value(tweet, "created_at")),
 		get_nested_value(tweet, "lang"),
 		clean(get_nested_value(tweet, "text")),
 		get_nested_value_json(tweet, "contributors"),
@@ -224,7 +227,8 @@ for f in json_files:
 		get_nested_value_json(tweet, "quoted_status"),
 		get_nested_value(tweet, "truncated"))
 
-	tweet_tuples.append(tweet_tuple)
+                tweet_tuples.append(tweet_tuple)
+                inserted_count = inserted_count + 1
 
 	batch_insert(cursor, tweet_table, tweet_tuples)
 
@@ -233,7 +237,7 @@ for f in json_files:
 	print(str(inserted_count) + " total inserted")
 	sys.stdout.flush() # so print statements get printed to logs more quickly
 
-
+print("Done!")
 
 
 
