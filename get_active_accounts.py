@@ -41,24 +41,35 @@ def authenticate():
 	api = tweepy.API(auth)
 	return api
 
+def get_user_status(uid):
+	try:
+		user_data = api.get_user(user_id=uid)
+		return "protected" if user_data.protected else "active"
 
-def get_protected_users(api, uids):
-	protected_users = {}
+	except tweepy.TweepError as e:
+		if(e.api_code==63):
+			return "suspended"
+		if(e.api_code==50):
+			return "not found"
+		if(e.api_code==179):
+			return "protected"
+
+def get_user_statuses(api, uids):
+	user_statuses = {}
 	
 	## Pull user data for each user id from the Twitter apis
 	for index in range(0, len(uids), 100):
 		## Define a chunk of 100 user ids from the list (because the API only allows 100 users per request)
 		chunk = uids[index : index+100]
 
-		## Pass the chunk to the lookup methods and retrieve their data
-		user_chunks = api.lookup_users(user_ids=chunk)
-
-		## For each user returned (i.e. accounts that haven't been deleted), get whether the account is protected
-		for user in user_chunks:
-			protected_users[user.id] = user.protected
+		for uid in chunk:
+			user_status = get_user_status(uid)
+			user_statuses[uid] = user_status
+		print(index)
+		time.sleep(300)
 
 	## Return the dictionary
-	return protected_users
+	return user_statuses
 
 ## Get the list of user ids we want to look up
 uids = get_input_list()
@@ -67,21 +78,14 @@ uids = get_input_list()
 api = authenticate()
 
 ## Pull the protected status of still-active accounts (users missing from this dictionary have been deleted)
-users = get_protected_users(api, uids)
+user_statuses = get_user_statuses(api, uids)
 
-## Dump into a JSON file
-json.dump(users, open("protected_users.json", "w+"))
-
-## All the accounts in the dictionary are still active 
-active_uids = json.load(open("protected_users.json")).keys()
-
-## Write a csv with the active/deleted status of each account
+## Write a csv with the account statuses
 with open("status_nodetable.csv", "w+") as f:
 	writer = csv.writer(f)
 	writer.writerow(["id", "status"])
 
-	for uid in uids:
-		status = "active" if uid in active_uids else "removed"
+	for uid, status in user_statuses.items():
 		writer.writerow([uid, status])
 
 
